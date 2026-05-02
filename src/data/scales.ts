@@ -8,11 +8,10 @@ export type ScalePrompt = {
 
 export const GRADES = [1, 2, 3, 4, 5, 6, 7, 8];
 
-const scaleBowing = (slur: string) =>
-  ['Separate bows', `Slurred (${slur})`];
+const scaleBowing = (_slur: string) => ['Separate bows', 'Slurred'];
 
 const evenBowing = (slur?: string) =>
-  slur ? ['Separate bows', `Slurred (${slur})`] : ['Separate bows'];
+  slur ? ['Separate bows', 'Slurred'] : ['Separate bows'];
 
 const slugify = (value: string) =>
   value
