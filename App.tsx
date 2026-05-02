@@ -32,6 +32,7 @@ type PracticePrompt = ScalePrompt & {
 };
 
 type ThemeName = 'classic' | 'bright' | 'contrast';
+type DifficultyMode = 'easy' | 'normal' | 'hard';
 type ScaleCategory =
   | 'scales'
   | 'arpeggios'
@@ -183,6 +184,12 @@ const DEFAULT_CATEGORIES: CategorySelection = {
   doubleStops: true,
 };
 
+const DIFFICULTY_MODES: { key: DifficultyMode; label: string }[] = [
+  { key: 'easy', label: 'Easy' },
+  { key: 'normal', label: 'Normal' },
+  { key: 'hard', label: 'Hard' },
+];
+
 function polarToCartesian(
   centerX: number,
   centerY: number,
@@ -303,9 +310,15 @@ export default function App() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [themeName, setThemeName] = useState<ThemeName>('classic');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [listModal, setListModal] = useState<'review' | 'easy' | 'hard' | null>(
+    null,
+  );
+  const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('normal');
   const [avoidRecentRepeats, setAvoidRecentRepeats] = useState(true);
   const [enabledCategories, setEnabledCategories] =
     useState<CategorySelection>(DEFAULT_CATEGORIES);
+  const [easyScaleIds, setEasyScaleIds] = useState<string[]>([]);
+  const [hardScaleIds, setHardScaleIds] = useState<string[]>([]);
   const spinAnimation = useRef(new Animated.Value(0)).current;
   const [fontsLoaded] = useFonts({
     EBGaramond_400Regular,
@@ -321,14 +334,35 @@ export default function App() {
       SCALE_PROMPTS.filter(
         (scale) =>
           scale.grade === selectedGrade &&
-          enabledCategories[getScaleCategory(scale)],
+          enabledCategories[getScaleCategory(scale)] &&
+          (difficultyMode === 'normal' ||
+            (difficultyMode === 'easy' && easyScaleIds.includes(scale.id)) ||
+            (difficultyMode === 'hard' && hardScaleIds.includes(scale.id))),
       ),
-    [enabledCategories, selectedGrade],
+    [difficultyMode, easyScaleIds, enabledCategories, hardScaleIds, selectedGrade],
   );
   const theme = THEMES.find((candidate) => candidate.name === themeName) ?? THEMES[0];
   const hasEnabledCategory = CATEGORIES.some(
     (category) => enabledCategories[category.key],
   );
+  const reviewScales = useMemo(
+    () => SCALE_PROMPTS.filter((scale) => scale.grade === selectedGrade),
+    [selectedGrade],
+  );
+  const easyScales = useMemo(
+    () => SCALE_PROMPTS.filter((scale) => easyScaleIds.includes(scale.id)),
+    [easyScaleIds],
+  );
+  const hardScales = useMemo(
+    () => SCALE_PROMPTS.filter((scale) => hardScaleIds.includes(scale.id)),
+    [hardScaleIds],
+  );
+  const isCurrentScaleEasy = currentScale
+    ? easyScaleIds.includes(currentScale.id)
+    : false;
+  const isCurrentScaleHard = currentScale
+    ? hardScaleIds.includes(currentScale.id)
+    : false;
 
   const toggleCategory = (category: ScaleCategory) => {
     setEnabledCategories((currentCategories) => {
@@ -356,6 +390,32 @@ export default function App() {
     setSelectedGrade(grade);
     setCurrentScale(null);
     setHistory([]);
+  };
+
+  const toggleEasyScale = (scaleId: string) => {
+    setEasyScaleIds((currentIds) => {
+      if (currentIds.includes(scaleId)) {
+        return currentIds.filter((currentId) => currentId !== scaleId);
+      }
+
+      setHardScaleIds((hardIds) =>
+        hardIds.filter((hardId) => hardId !== scaleId),
+      );
+      return [scaleId, ...currentIds];
+    });
+  };
+
+  const toggleHardScale = (scaleId: string) => {
+    setHardScaleIds((currentIds) => {
+      if (currentIds.includes(scaleId)) {
+        return currentIds.filter((currentId) => currentId !== scaleId);
+      }
+
+      setEasyScaleIds((easyIds) =>
+        easyIds.filter((easyId) => easyId !== scaleId),
+      );
+      return [scaleId, ...currentIds];
+    });
   };
 
   const handleSpin = () => {
@@ -400,6 +460,20 @@ export default function App() {
     inputRange: [0, 1],
     outputRange: ['0deg', '1080deg'],
   });
+  const visibleListScales =
+    listModal === 'review'
+      ? reviewScales
+      : listModal === 'easy'
+        ? easyScales
+        : listModal === 'hard'
+          ? hardScales
+          : [];
+  const listTitle =
+    listModal === 'review'
+      ? `Grade ${selectedGrade} list`
+      : listModal === 'easy'
+        ? 'Easy list'
+        : 'Hard list';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -430,19 +504,16 @@ export default function App() {
             accessibilityLabel="Open settings"
             accessibilityRole="button"
             onPress={() => setIsSettingsOpen(true)}
-            style={[
-              styles.settingsButton,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
+            style={styles.settingsButton}
           >
             <Text
               style={[
                 styles.settingsButtonText,
-                { color: theme.labelText },
+                { color: theme.text },
                 themedFont(theme, semiboldFont, '700'),
               ]}
             >
-              ⚙
+              ⋯
             </Text>
           </Pressable>
         </View>
@@ -457,6 +528,17 @@ export default function App() {
           >
             Grade
           </Text>
+          {difficultyMode !== 'normal' && (
+            <Text
+              style={[
+                styles.modeNote,
+                { color: theme.mutedText },
+                themedFont(theme, regularFont, '400'),
+              ]}
+            >
+              {difficultyMode === 'easy' ? 'Easy mode' : 'Hard mode'}
+            </Text>
+          )}
           <View style={styles.gradeGrid}>
             {GRADES.map((grade) => {
               const isSelected = selectedGrade === grade;
@@ -545,6 +627,62 @@ export default function App() {
               >
                 {formatMusicText(currentScale.selectedBowing)}
               </Text>
+              <View style={styles.resultActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => toggleEasyScale(currentScale.id)}
+                  style={[
+                    styles.resultActionButton,
+                    {
+                      backgroundColor: isCurrentScaleEasy
+                        ? theme.selected
+                        : theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.resultActionText,
+                      {
+                        color: isCurrentScaleEasy
+                          ? theme.selectedText
+                          : theme.labelText,
+                      },
+                      themedFont(theme, semiboldFont, '700'),
+                    ]}
+                  >
+                    {isCurrentScaleEasy ? '👍 Easy' : '👍 Easy'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => toggleHardScale(currentScale.id)}
+                  style={[
+                    styles.resultActionButton,
+                    {
+                      backgroundColor: isCurrentScaleHard
+                        ? theme.selected
+                        : theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.resultActionText,
+                      {
+                        color: isCurrentScaleHard
+                          ? theme.selectedText
+                          : theme.labelText,
+                      },
+                      themedFont(theme, semiboldFont, '700'),
+                    ]}
+                  >
+                    {isCurrentScaleHard ? '👎 Hard' : '👎 Hard'}
+                  </Text>
+                </Pressable>
+              </View>
             </>
           ) : (
             <>
@@ -760,6 +898,59 @@ export default function App() {
                 </View>
               </View>
 
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: theme.labelText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  Practice mode
+                </Text>
+                <View style={styles.themeRow}>
+                  {DIFFICULTY_MODES.map((mode) => {
+                    const isSelected = difficultyMode === mode.key;
+
+                    return (
+                      <Pressable
+                        key={mode.key}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => {
+                          setDifficultyMode(mode.key);
+                          setCurrentScale(null);
+                          setHistory([]);
+                        }}
+                        style={[
+                          styles.themeButton,
+                          {
+                            backgroundColor: isSelected
+                              ? theme.selected
+                              : theme.surface,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.themeButtonText,
+                            {
+                              color: isSelected
+                                ? theme.selectedText
+                                : theme.labelText,
+                            },
+                            themedFont(theme, semiboldFont, '700'),
+                          ]}
+                        >
+                          {mode.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
               <View style={styles.settingRow}>
                 <View style={styles.settingTextGroup}>
                   <Text
@@ -787,6 +978,72 @@ export default function App() {
                   trackColor={{ false: theme.border, true: theme.selected }}
                   value={avoidRecentRepeats}
                 />
+              </View>
+
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: theme.labelText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  Lists
+                </Text>
+                <View style={styles.toolList}>
+                  {[
+                    {
+                      key: 'review' as const,
+                      label: `Review Grade ${selectedGrade}`,
+                      count: reviewScales.length,
+                    },
+                    {
+                      key: 'easy' as const,
+                      label: 'Easy list',
+                      count: easyScales.length,
+                    },
+                    {
+                      key: 'hard' as const,
+                      label: 'Hard list',
+                      count: hardScales.length,
+                    },
+                  ].map((tool) => (
+                    <Pressable
+                      key={tool.key}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setIsSettingsOpen(false);
+                        setListModal(tool.key);
+                      }}
+                      style={[
+                        styles.toolButton,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.toolButtonText,
+                          { color: theme.labelText },
+                          themedFont(theme, semiboldFont, '700'),
+                        ]}
+                      >
+                        {tool.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.toolCount,
+                          { color: theme.mutedText },
+                          themedFont(theme, regularFont, '400'),
+                        ]}
+                      >
+                        {tool.count}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.section}>
@@ -857,6 +1114,123 @@ export default function App() {
           </View>
         </View>
       </Modal>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setListModal(null)}
+        transparent
+        visible={listModal !== null}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.settingsPanel,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.settingsHeader}>
+              <Text
+                style={[
+                  styles.settingsTitle,
+                  { color: theme.text },
+                  themedFont(theme, boldFont, '700'),
+                ]}
+              >
+                {listTitle}
+              </Text>
+              <Pressable
+                accessibilityLabel="Close list"
+                accessibilityRole="button"
+                onPress={() => setListModal(null)}
+                style={[
+                  styles.closeButton,
+                  { backgroundColor: theme.selected, borderColor: theme.selected },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.closeButtonText,
+                    { color: theme.selectedText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  ×
+                </Text>
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.settingsContent}>
+              {visibleListScales.length > 0 ? (
+                visibleListScales.map((scale) => (
+                  <View
+                    key={scale.id}
+                    style={[
+                      styles.listItem,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.listItemText}>
+                      <Text
+                        style={[
+                          styles.historyName,
+                          { color: theme.text },
+                          themedFont(theme, semiboldFont, '700'),
+                        ]}
+                      >
+                        {formatMusicText(scale.name)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.historyMeta,
+                          { color: theme.mutedText },
+                          themedFont(theme, regularFont, '400'),
+                        ]}
+                      >
+                        {formatMusicText(scale.pattern)}
+                      </Text>
+                    </View>
+                    {listModal !== 'review' && (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          listModal === 'easy'
+                            ? toggleEasyScale(scale.id)
+                            : toggleHardScale(scale.id)
+                        }
+                        style={[
+                          styles.removeButton,
+                          { borderColor: theme.border },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.removeButtonText,
+                            { color: theme.labelText },
+                            themedFont(theme, semiboldFont, '700'),
+                          ]}
+                        >
+                          Remove
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ))
+              ) : (
+                <Text
+                  style={[
+                    styles.emptyHistory,
+                    { color: theme.mutedText },
+                    themedFont(theme, regularFont, '400'),
+                  ]}
+                >
+                  Nothing here yet.
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -917,6 +1291,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textTransform: 'uppercase',
   },
+  modeNote: {
+    fontSize: 18,
+    marginTop: -6,
+  },
   gradeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -941,15 +1319,13 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1.5,
     height: 46,
     justifyContent: 'center',
     width: 46,
   },
   settingsButtonText: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 34,
+    lineHeight: 34,
   },
   gradeButton: {
     alignItems: 'center',
@@ -986,6 +1362,22 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 26,
     marginTop: 8,
+  },
+  resultActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 18,
+  },
+  resultActionButton: {
+    borderRadius: 8,
+    borderWidth: 1.5,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  resultActionText: {
+    fontSize: 17,
   },
   spinButton: {
     alignItems: 'center',
@@ -1089,6 +1481,24 @@ const styles = StyleSheet.create({
   filterList: {
     gap: 10,
   },
+  toolList: {
+    gap: 10,
+  },
+  toolButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  toolButtonText: {
+    fontSize: 19,
+  },
+  toolCount: {
+    fontSize: 17,
+  },
   filterItem: {
     alignItems: 'center',
     borderRadius: 8,
@@ -1105,5 +1515,27 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 19,
+  },
+  listItem: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  listItemText: {
+    flex: 1,
+  },
+  removeButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  removeButtonText: {
+    fontSize: 15,
   },
 });
