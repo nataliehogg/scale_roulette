@@ -14,10 +14,12 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -30,6 +32,15 @@ type PracticePrompt = ScalePrompt & {
 };
 
 type ThemeName = 'classic' | 'bright' | 'contrast';
+type ScaleCategory =
+  | 'scales'
+  | 'arpeggios'
+  | 'chromatic'
+  | 'dominantSevenths'
+  | 'diminishedSevenths'
+  | 'doubleStops';
+
+type CategorySelection = Record<ScaleCategory, boolean>;
 
 type AppTheme = {
   name: ThemeName;
@@ -154,6 +165,24 @@ const THEMES: AppTheme[] = [
   },
 ];
 
+const CATEGORIES: { key: ScaleCategory; label: string }[] = [
+  { key: 'scales', label: 'Scales' },
+  { key: 'arpeggios', label: 'Arpeggios' },
+  { key: 'chromatic', label: 'Chromatic' },
+  { key: 'dominantSevenths', label: 'Dominant sevenths' },
+  { key: 'diminishedSevenths', label: 'Diminished sevenths' },
+  { key: 'doubleStops', label: 'Double-stops' },
+];
+
+const DEFAULT_CATEGORIES: CategorySelection = {
+  scales: true,
+  arpeggios: true,
+  chromatic: true,
+  dominantSevenths: true,
+  diminishedSevenths: true,
+  doubleStops: true,
+};
+
 function polarToCartesian(
   centerX: number,
   centerY: number,
@@ -216,13 +245,15 @@ function RouletteWheel({ theme = THEMES[0] }: { theme?: AppTheme }) {
 
 function pickRandomScale(
   scales: ScalePrompt[],
-  previousScaleId?: string,
+  excludedScaleIds: string[] = [],
 ): ScalePrompt {
   if (scales.length === 1) {
     return scales[0];
   }
 
-  const availableScales = scales.filter((scale) => scale.id !== previousScaleId);
+  const availableScales = scales.filter(
+    (scale) => !excludedScaleIds.includes(scale.id),
+  );
   const scalePool = availableScales.length > 0 ? availableScales : scales;
   const randomIndex = Math.floor(Math.random() * scalePool.length);
 
@@ -239,12 +270,42 @@ function formatMusicText(value: string): string {
   return value.replace(/-sharp/g, '♯').replace(/-flat/g, '♭');
 }
 
+function getScaleCategory(scale: ScalePrompt): ScaleCategory {
+  const searchableText = `${scale.name} ${scale.pattern}`.toLowerCase();
+
+  if (searchableText.includes('arpeggio')) {
+    return 'arpeggios';
+  }
+
+  if (searchableText.includes('chromatic')) {
+    return 'chromatic';
+  }
+
+  if (searchableText.includes('dominant seventh')) {
+    return 'dominantSevenths';
+  }
+
+  if (searchableText.includes('diminished seventh')) {
+    return 'diminishedSevenths';
+  }
+
+  if (searchableText.includes('double-stop')) {
+    return 'doubleStops';
+  }
+
+  return 'scales';
+}
+
 export default function App() {
   const [selectedGrade, setSelectedGrade] = useState(GRADES[0]);
   const [currentScale, setCurrentScale] = useState<PracticePrompt | null>(null);
   const [history, setHistory] = useState<PracticePrompt[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [themeName, setThemeName] = useState<ThemeName>('classic');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [avoidRecentRepeats, setAvoidRecentRepeats] = useState(true);
+  const [enabledCategories, setEnabledCategories] =
+    useState<CategorySelection>(DEFAULT_CATEGORIES);
   const spinAnimation = useRef(new Animated.Value(0)).current;
   const [fontsLoaded] = useFonts({
     EBGaramond_400Regular,
@@ -256,10 +317,37 @@ export default function App() {
   });
 
   const gradeScales = useMemo(
-    () => SCALE_PROMPTS.filter((scale) => scale.grade === selectedGrade),
-    [selectedGrade],
+    () =>
+      SCALE_PROMPTS.filter(
+        (scale) =>
+          scale.grade === selectedGrade &&
+          enabledCategories[getScaleCategory(scale)],
+      ),
+    [enabledCategories, selectedGrade],
   );
   const theme = THEMES.find((candidate) => candidate.name === themeName) ?? THEMES[0];
+  const hasEnabledCategory = CATEGORIES.some(
+    (category) => enabledCategories[category.key],
+  );
+
+  const toggleCategory = (category: ScaleCategory) => {
+    setEnabledCategories((currentCategories) => {
+      const enabledCount = CATEGORIES.filter(
+        (option) => currentCategories[option.key],
+      ).length;
+
+      if (currentCategories[category] && enabledCount === 1) {
+        return currentCategories;
+      }
+
+      return {
+        ...currentCategories,
+        [category]: !currentCategories[category],
+      };
+    });
+    setCurrentScale(null);
+    setHistory([]);
+  };
 
   const handleGradeChange = (grade: number) => {
     spinAnimation.stopAnimation();
@@ -271,13 +359,18 @@ export default function App() {
   };
 
   const handleSpin = () => {
-    if (isSpinning) {
+    if (isSpinning || gradeScales.length === 0) {
       return;
     }
 
     setIsSpinning(true);
     spinAnimation.setValue(0);
-    const nextScale = pickRandomScale(gradeScales, currentScale?.id);
+    const excludedScaleIds = avoidRecentRepeats
+      ? history.slice(0, 5).map((scale) => scale.id)
+      : currentScale
+        ? [currentScale.id]
+        : [];
+    const nextScale = pickRandomScale(gradeScales, excludedScaleIds);
     const nextPrompt = {
       ...nextScale,
       selectedBowing: pickRandomOption(nextScale.bowingOptions),
@@ -313,67 +406,45 @@ export default function App() {
       <StatusBar style={theme.name === 'contrast' ? 'dark' : 'dark'} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text
-            style={[
-              styles.appName,
-              { color: theme.text },
-              themedFont(theme, boldFont, '700'),
-            ]}
-          >
-            ScaleRoulette
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: theme.mutedText },
-              themedFont(theme, regularFont, '400'),
-            ]}
-          >
-            Violin exam scale practice
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            style={[
-              styles.label,
-              { color: theme.labelText },
-              themedFont(theme, semiboldFont, '700'),
-            ]}
-          >
-            Theme
-          </Text>
-          <View style={styles.themeRow}>
-            {THEMES.map((themeOption) => {
-              const isSelected = themeOption.name === themeName;
-
-              return (
-                <Pressable
-                  key={themeOption.name}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  onPress={() => setThemeName(themeOption.name)}
-                  style={[
-                    styles.themeButton,
-                    {
-                      backgroundColor: isSelected ? theme.selected : theme.surface,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.themeButtonText,
-                      { color: isSelected ? theme.selectedText : theme.labelText },
-                      themedFont(theme, semiboldFont, '700'),
-                    ]}
-                  >
-                    {themeOption.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View>
+            <Text
+              style={[
+                styles.appName,
+                { color: theme.text },
+                themedFont(theme, boldFont, '700'),
+              ]}
+            >
+              ScaleRoulette
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                { color: theme.mutedText },
+                themedFont(theme, regularFont, '400'),
+              ]}
+            >
+              Violin exam scale practice
+            </Text>
           </View>
+          <Pressable
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
+            onPress={() => setIsSettingsOpen(true)}
+            style={[
+              styles.settingsButton,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <Text
+              style={[
+                styles.settingsButtonText,
+                { color: theme.labelText },
+                themedFont(theme, semiboldFont, '700'),
+              ]}
+            >
+              ⚙
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.section}>
@@ -502,7 +573,7 @@ export default function App() {
                   themedFont(theme, bodyFont, '500'),
                 ]}
               >
-                {gradeScales.length} syllabus prompts loaded
+                {gradeScales.length} prompts available
               </Text>
             </>
           )}
@@ -511,12 +582,12 @@ export default function App() {
         <Pressable
           accessibilityRole="button"
           onPress={handleSpin}
-          disabled={isSpinning}
+          disabled={isSpinning || gradeScales.length === 0}
           style={({ pressed }) => [
             styles.spinButton,
             { backgroundColor: theme.primary },
             pressed && styles.spinButtonPressed,
-            isSpinning && styles.spinButtonDisabled,
+            (isSpinning || gradeScales.length === 0) && styles.spinButtonDisabled,
           ]}
         >
           <Text
@@ -595,6 +666,197 @@ export default function App() {
           from 2024. Please cross-check before relying on it in an exam setting.
         </Text>
       </ScrollView>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setIsSettingsOpen(false)}
+        transparent
+        visible={isSettingsOpen}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.settingsPanel,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.settingsHeader}>
+              <Text
+                style={[
+                  styles.settingsTitle,
+                  { color: theme.text },
+                  themedFont(theme, boldFont, '700'),
+                ]}
+              >
+                Settings
+              </Text>
+              <Pressable
+                accessibilityLabel="Close settings"
+                accessibilityRole="button"
+                onPress={() => setIsSettingsOpen(false)}
+                style={[
+                  styles.closeButton,
+                  { backgroundColor: theme.selected, borderColor: theme.selected },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.closeButtonText,
+                    { color: theme.selectedText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  ×
+                </Text>
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.settingsContent}>
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: theme.labelText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  Theme
+                </Text>
+                <View style={styles.themeRow}>
+                  {THEMES.map((themeOption) => {
+                    const isSelected = themeOption.name === themeName;
+
+                    return (
+                      <Pressable
+                        key={themeOption.name}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => setThemeName(themeOption.name)}
+                        style={[
+                          styles.themeButton,
+                          {
+                            backgroundColor: isSelected
+                              ? theme.selected
+                              : theme.surface,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.themeButtonText,
+                            {
+                              color: isSelected
+                                ? theme.selectedText
+                                : theme.labelText,
+                            },
+                            themedFont(theme, semiboldFont, '700'),
+                          ]}
+                        >
+                          {themeOption.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.settingRow}>
+                <View style={styles.settingTextGroup}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      { color: theme.text },
+                      themedFont(theme, semiboldFont, '700'),
+                    ]}
+                  >
+                    Avoid recent repeats
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.mutedText },
+                      themedFont(theme, regularFont, '400'),
+                    ]}
+                  >
+                    Skip recently spun prompts when possible.
+                  </Text>
+                </View>
+                <Switch
+                  onValueChange={setAvoidRecentRepeats}
+                  thumbColor={avoidRecentRepeats ? theme.primary : theme.surface}
+                  trackColor={{ false: theme.border, true: theme.selected }}
+                  value={avoidRecentRepeats}
+                />
+              </View>
+
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: theme.labelText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  Include
+                </Text>
+                <View style={styles.filterList}>
+                  {CATEGORIES.map((category) => {
+                    const isEnabled = enabledCategories[category.key];
+
+                    return (
+                      <Pressable
+                        key={category.key}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: isEnabled }}
+                        onPress={() => toggleCategory(category.key)}
+                        style={[
+                          styles.filterItem,
+                          {
+                            backgroundColor: isEnabled
+                              ? theme.selected
+                              : theme.surface,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.filterCheck,
+                            { color: isEnabled ? theme.selectedText : theme.labelText },
+                            themedFont(theme, semiboldFont, '700'),
+                          ]}
+                        >
+                          {isEnabled ? '✓' : ''}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.filterLabel,
+                            { color: isEnabled ? theme.selectedText : theme.labelText },
+                            themedFont(theme, semiboldFont, '700'),
+                          ]}
+                        >
+                          {category.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {!hasEnabledCategory && (
+                  <Text
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.accent },
+                      themedFont(theme, regularFont, '400'),
+                    ]}
+                  >
+                    Keep at least one type selected.
+                  </Text>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -635,6 +897,10 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   header: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
     paddingTop: 12,
   },
   appName: {
@@ -672,6 +938,18 @@ const styles = StyleSheet.create({
   },
   themeButtonText: {
     fontSize: 18,
+  },
+  settingsButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    height: 46,
+    justifyContent: 'center',
+    width: 46,
+  },
+  settingsButtonText: {
+    fontSize: 24,
+    lineHeight: 28,
   },
   gradeButton: {
     alignItems: 'center',
@@ -753,5 +1031,79 @@ const styles = StyleSheet.create({
   spinnerWheel: {
     height: 112,
     width: 112,
+  },
+  modalBackdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  settingsPanel: {
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderWidth: 1.5,
+    maxHeight: '86%',
+    padding: 24,
+  },
+  settingsHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  settingsTitle: {
+    fontSize: 34,
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  closeButtonText: {
+    fontSize: 30,
+    lineHeight: 34,
+  },
+  settingsContent: {
+    gap: 24,
+    paddingBottom: 12,
+  },
+  settingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 18,
+    justifyContent: 'space-between',
+  },
+  settingTextGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  settingLabel: {
+    fontSize: 20,
+  },
+  settingDescription: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  filterList: {
+    gap: 10,
+  },
+  filterItem: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  filterCheck: {
+    fontSize: 20,
+    textAlign: 'center',
+    width: 22,
+  },
+  filterLabel: {
+    fontSize: 19,
   },
 });
