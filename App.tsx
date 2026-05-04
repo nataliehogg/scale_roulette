@@ -629,15 +629,12 @@ export default function App() {
             onPress={() => setIsSettingsOpen(true)}
             style={styles.settingsButton}
           >
-            <Text
-              style={[
-                styles.settingsButtonText,
-                { color: theme.text },
-                themedFont(theme, semiboldFont, '700'),
-              ]}
-            >
-              ⋯
-            </Text>
+            {[0, 1, 2].map((line) => (
+              <View
+                key={line}
+                style={[styles.settingsButtonLine, { backgroundColor: theme.text }]}
+              />
+            ))}
           </Pressable>
         </View>
 
@@ -1609,7 +1606,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   header: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 16,
@@ -1662,13 +1659,15 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     alignItems: 'center',
+    gap: 5,
     height: 46,
     justifyContent: 'center',
     width: 46,
   },
-  settingsButtonText: {
-    fontSize: 34,
-    lineHeight: 34,
+  settingsButtonLine: {
+    borderRadius: 999,
+    height: 2,
+    width: 24,
   },
   gradeButton: {
     alignItems: 'center',
