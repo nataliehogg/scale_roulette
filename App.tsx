@@ -739,15 +739,17 @@ export default function App() {
               >
                 {formatMusicText(currentScale.pattern)}
               </Text>
-              <Text
-                style={[
-                  styles.resultDetail,
-                  { color: theme.labelText },
-                  themedFont(theme, bodyFont, '500'),
-                ]}
-              >
-                {formatMusicText(currentScale.selectedBowing)}
-              </Text>
+              {currentScale.selectedBowing.length > 0 && (
+                <Text
+                  style={[
+                    styles.resultDetail,
+                    { color: theme.labelText },
+                    themedFont(theme, bodyFont, '500'),
+                  ]}
+                >
+                  {formatMusicText(currentScale.selectedBowing)}
+                </Text>
+              )}
               <View style={styles.resultActions}>
                 <Pressable
                   accessibilityRole="button"

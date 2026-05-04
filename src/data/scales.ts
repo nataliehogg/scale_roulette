@@ -93,7 +93,7 @@ export const SCALE_PROMPTS: ScalePrompt[] = [
   ...prompts(6, ['Dominant seventh in C, starting on G', 'Dominant seventh in E-flat, starting on B-flat', 'Dominant seventh in F, starting on C'], 'Dominant seventh resolving on tonic, 2 octaves', evenBowing('4 notes to a bow')),
   ...prompts(6, ['Diminished seventh starting on G', 'Diminished seventh starting on B-flat', 'Diminished seventh starting on C'], 'Diminished seventh, 2 octaves', evenBowing('4 notes to a bow')),
   ...prompts(6, ['Chromatic starting on G', 'Chromatic starting on B-flat', 'Chromatic starting on C'], 'Chromatic scale, 2 octaves', evenBowing('6 notes to a bow')),
-  prompt(6, 'B-flat major in sixths', 'Double-stop scale in broken steps, 1 octave', ['See syllabus pattern on page 16']),
+  prompt(6, 'B-flat major in sixths', 'Double-stop scale in broken steps, 1 octave', ['']),
 
   ...prompts(7, ['F major', 'F-sharp major', ...minorForms(['F', 'F-sharp'])], 'Scale, 2 octaves', scaleBowing('7 notes to a bow')),
   ...prompts(7, ['A major', 'B major', 'D major', ...minorForms(['A', 'B', 'D'])], 'Scale, 3 octaves', scaleBowing('7 notes to a bow')),
@@ -105,7 +105,7 @@ export const SCALE_PROMPTS: ScalePrompt[] = [
   ...prompts(7, ['Diminished seventh starting on A', 'Diminished seventh starting on B'], 'Diminished seventh, 3 octaves', evenBowing('4 notes to a bow')),
   ...prompts(7, ['Chromatic starting on D', 'Chromatic starting on F'], 'Chromatic scale, 2 octaves', evenBowing('12 notes to a bow')),
   ...prompts(7, ['Chromatic starting on A', 'Chromatic starting on B'], 'Chromatic scale, 3 octaves', evenBowing('12 notes to a bow')),
-  ...prompts(7, ['G major in sixths', 'B-flat major in sixths', 'D major in octaves'], 'Double-stop scale in broken steps, 1 octave', ['See syllabus pattern on page 16']),
+  ...prompts(7, ['G major in sixths', 'B-flat major in sixths', 'D major in octaves'], 'Double-stop scale in broken steps, 1 octave', ['']),
 
   ...prompts(8, ['A-flat/G-sharp major', 'C major', 'D-flat/C-sharp major', 'E-flat major', 'E major', ...minorForms(['A-flat/G-sharp', 'C', 'D-flat/C-sharp', 'E-flat', 'E'])], 'Scale, 3 octaves', scaleBowing('7 notes to a bow')),
   ...prompts(8, ['A-flat/G-sharp major', 'C major', 'D-flat/C-sharp major', 'E-flat major', 'E major', 'A-flat/G-sharp minor', 'C minor', 'D-flat/C-sharp minor', 'E-flat minor', 'E minor'], 'Arpeggio, 3 octaves', evenBowing('9 notes to a bow')),
@@ -118,5 +118,5 @@ export const SCALE_PROMPTS: ScalePrompt[] = [
   prompt(8, 'G harmonic minor in octaves', 'Double-stop scale in parallel, 1 octave', ['Separate bows']),
   prompt(8, 'G melodic minor in octaves', 'Double-stop scale in parallel, 1 octave', ['Separate bows']),
   prompt(8, 'E-flat major in sixths', 'Double-stop scale in parallel, 2 octaves', ['Separate bows']),
-  prompt(8, 'B-flat major in thirds', 'Double-stop scale in broken steps, 2 octaves', ['See syllabus pattern on page 16']),
+  prompt(8, 'B-flat major in thirds', 'Double-stop scale in broken steps, 2 octaves', ['']),
 ];
