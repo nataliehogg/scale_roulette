@@ -39,7 +39,7 @@ jobs:
 
       - name: Configure custom domain
         run: |
-          echo "scaleroulette.nataliebhogg.com" > dist/CNAME
+          echo "scaleroulette.com" > dist/CNAME
           touch dist/.nojekyll
 
       - name: Upload Pages artifact
