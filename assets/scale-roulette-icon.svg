@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="220" fill="#F45B26"/>
+  <circle cx="512" cy="512" r="342" fill="#ffffff" stroke="#141414" stroke-width="30"/>
+  <path d="M512 512 L512 170 A342 342 0 0 1 683 216 Z" fill="#03AED2" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L683 216 A342 342 0 0 1 808 341 Z" fill="#F8DE22" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L808 341 A342 342 0 0 1 854 512 Z" fill="#D12052" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L854 512 A342 342 0 0 1 808 683 Z" fill="#ffffff" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L808 683 A342 342 0 0 1 683 808 Z" fill="#03AED2" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L683 808 A342 342 0 0 1 512 854 Z" fill="#F8DE22" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L512 854 A342 342 0 0 1 341 808 Z" fill="#D12052" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L341 808 A342 342 0 0 1 216 683 Z" fill="#ffffff" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L216 683 A342 342 0 0 1 170 512 Z" fill="#03AED2" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L170 512 A342 342 0 0 1 216 341 Z" fill="#F8DE22" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L216 341 A342 342 0 0 1 341 216 Z" fill="#D12052" stroke="#141414" stroke-width="10"/>
+  <path d="M512 512 L341 216 A342 342 0 0 1 512 170 Z" fill="#ffffff" stroke="#141414" stroke-width="10"/>
+  <circle cx="512" cy="512" r="98" fill="#ffffff" stroke="#141414" stroke-width="24"/>
+  <circle cx="512" cy="512" r="36" fill="#F8DE22" stroke="#141414" stroke-width="12"/>
+</svg>

@@ -2,6 +2,7 @@
   "expo": {
     "name": "ScaleRoulette",
     "slug": "scale-roulette",
+    "description": "Violin scale practice prompts for music exam preparation.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,6 +17,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.scaleroulette.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

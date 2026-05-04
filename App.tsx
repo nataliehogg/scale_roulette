@@ -10,7 +10,8 @@ import {
   ComicNeue_400Regular,
   ComicNeue_700Bold,
 } from '@expo-google-fonts/comic-neue';
-import { useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -42,6 +43,15 @@ type ScaleCategory =
   | 'doubleStops';
 
 type CategorySelection = Record<ScaleCategory, boolean>;
+type PersistedSettings = {
+  avoidRecentRepeats: boolean;
+  difficultyMode: DifficultyMode;
+  easyScaleIds: string[];
+  enabledCategories: CategorySelection;
+  hardScaleIds: string[];
+  selectedGrade: number;
+  themeName: ThemeName;
+};
 
 type AppTheme = {
   name: ThemeName;
@@ -190,6 +200,8 @@ const DIFFICULTY_MODES: { key: DifficultyMode; label: string }[] = [
   { key: 'hard', label: 'Hard' },
 ];
 
+const SETTINGS_STORAGE_KEY = 'scale-roulette:settings:v1';
+
 function polarToCartesian(
   centerX: number,
   centerY: number,
@@ -313,12 +325,14 @@ export default function App() {
   const [listModal, setListModal] = useState<'review' | 'easy' | 'hard' | null>(
     null,
   );
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('normal');
   const [avoidRecentRepeats, setAvoidRecentRepeats] = useState(true);
   const [enabledCategories, setEnabledCategories] =
     useState<CategorySelection>(DEFAULT_CATEGORIES);
   const [easyScaleIds, setEasyScaleIds] = useState<string[]>([]);
   const [hardScaleIds, setHardScaleIds] = useState<string[]>([]);
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
   const spinAnimation = useRef(new Animated.Value(0)).current;
   const [fontsLoaded] = useFonts({
     EBGaramond_400Regular,
@@ -363,6 +377,105 @@ export default function App() {
   const isCurrentScaleHard = currentScale
     ? hardScaleIds.includes(currentScale.id)
     : false;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSettings = async () => {
+      try {
+        const storedSettings = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+
+        if (!storedSettings || !isMounted) {
+          return;
+        }
+
+        const parsedSettings = JSON.parse(storedSettings) as Partial<PersistedSettings>;
+
+        if (
+          typeof parsedSettings.selectedGrade === 'number' &&
+          GRADES.includes(parsedSettings.selectedGrade)
+        ) {
+          setSelectedGrade(parsedSettings.selectedGrade);
+        }
+
+        if (
+          parsedSettings.themeName &&
+          THEMES.some((candidate) => candidate.name === parsedSettings.themeName)
+        ) {
+          setThemeName(parsedSettings.themeName);
+        }
+
+        if (
+          parsedSettings.difficultyMode &&
+          DIFFICULTY_MODES.some(
+            (mode) => mode.key === parsedSettings.difficultyMode,
+          )
+        ) {
+          setDifficultyMode(parsedSettings.difficultyMode);
+        }
+
+        if (typeof parsedSettings.avoidRecentRepeats === 'boolean') {
+          setAvoidRecentRepeats(parsedSettings.avoidRecentRepeats);
+        }
+
+        if (parsedSettings.enabledCategories) {
+          setEnabledCategories({
+            ...DEFAULT_CATEGORIES,
+            ...parsedSettings.enabledCategories,
+          });
+        }
+
+        if (Array.isArray(parsedSettings.easyScaleIds)) {
+          setEasyScaleIds(parsedSettings.easyScaleIds);
+        }
+
+        if (Array.isArray(parsedSettings.hardScaleIds)) {
+          setHardScaleIds(parsedSettings.hardScaleIds);
+        }
+      } catch (error) {
+        console.warn('Could not load settings', error);
+      } finally {
+        if (isMounted) {
+          setHasLoadedSettings(true);
+        }
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSettings) {
+      return;
+    }
+
+    const settings: PersistedSettings = {
+      avoidRecentRepeats,
+      difficultyMode,
+      easyScaleIds,
+      enabledCategories,
+      hardScaleIds,
+      selectedGrade,
+      themeName,
+    };
+
+    AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)).catch(
+      (error) => console.warn('Could not save settings', error),
+    );
+  }, [
+    avoidRecentRepeats,
+    difficultyMode,
+    easyScaleIds,
+    enabledCategories,
+    hardScaleIds,
+    hasLoadedSettings,
+    selectedGrade,
+    themeName,
+  ]);
 
   const toggleCategory = (category: ScaleCategory) => {
     setEnabledCategories((currentCategories) => {
@@ -652,7 +765,7 @@ export default function App() {
                       themedFont(theme, semiboldFont, '700'),
                     ]}
                   >
-                    {isCurrentScaleEasy ? '👍 Easy' : '👍 Easy'}
+                    Easy
                   </Text>
                 </Pressable>
                 <Pressable
@@ -679,7 +792,7 @@ export default function App() {
                       themedFont(theme, semiboldFont, '700'),
                     ]}
                   >
-                    {isCurrentScaleHard ? '👎 Hard' : '👎 Hard'}
+                    Hard
                   </Text>
                 </Pressable>
               </View>
@@ -1110,6 +1223,51 @@ export default function App() {
                   </Text>
                 )}
               </View>
+
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.label,
+                    { color: theme.labelText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  About
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setIsSettingsOpen(false);
+                    setIsAboutOpen(true);
+                  }}
+                  style={[
+                    styles.toolButton,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.toolButtonText,
+                      { color: theme.labelText },
+                      themedFont(theme, semiboldFont, '700'),
+                    ]}
+                  >
+                    Data source
+                  </Text>
+                  <Text
+                    style={[
+                      styles.toolCount,
+                      { color: theme.mutedText },
+                      themedFont(theme, regularFont, '400'),
+                    ]}
+                  >
+                    2024
+                  </Text>
+                </Pressable>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -1227,6 +1385,94 @@ export default function App() {
                   Nothing here yet.
                 </Text>
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setIsAboutOpen(false)}
+        transparent
+        visible={isAboutOpen}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.settingsPanel,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.settingsHeader}>
+              <Text
+                style={[
+                  styles.settingsTitle,
+                  { color: theme.text },
+                  themedFont(theme, boldFont, '700'),
+                ]}
+              >
+                Data source
+              </Text>
+              <Pressable
+                accessibilityLabel="Close data source"
+                accessibilityRole="button"
+                onPress={() => setIsAboutOpen(false)}
+                style={[
+                  styles.closeButton,
+                  { backgroundColor: theme.selected, borderColor: theme.selected },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.closeButtonText,
+                    { color: theme.selectedText },
+                    themedFont(theme, semiboldFont, '700'),
+                  ]}
+                >
+                  ×
+                </Text>
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.settingsContent}>
+              <Text
+                style={[
+                  styles.aboutText,
+                  { color: theme.text },
+                  themedFont(theme, regularFont, '400'),
+                ]}
+              >
+                ScaleRoulette contains violin scale and arpeggio prompts extracted
+                from the ABRSM Bowed Strings Practical Grades syllabus from 2024.
+              </Text>
+              <Text
+                style={[
+                  styles.aboutText,
+                  { color: theme.text },
+                  themedFont(theme, regularFont, '400'),
+                ]}
+              >
+                The app is designed as a practice aid. Please cross-check the
+                official syllabus before relying on any prompt for exam
+                preparation.
+              </Text>
+              <Text
+                style={[
+                  styles.aboutText,
+                  { color: theme.text },
+                  themedFont(theme, regularFont, '400'),
+                ]}
+              >
+                ScaleRoulette is not affiliated with, endorsed by, or sponsored by
+                ABRSM.
+              </Text>
+              <Text
+                style={[
+                  styles.aboutText,
+                  { color: theme.mutedText },
+                  themedFont(theme, regularFont, '400'),
+                ]}
+              >
+                Settings and easy/hard lists are stored locally on this device.
+              </Text>
             </ScrollView>
           </View>
         </View>
@@ -1370,14 +1616,16 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   resultActionButton: {
+    alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1.5,
     minHeight: 40,
+    minWidth: 92,
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   resultActionText: {
-    fontSize: 17,
+    fontSize: 18,
   },
   spinButton: {
     alignItems: 'center',
@@ -1415,6 +1663,10 @@ const styles = StyleSheet.create({
   dataNote: {
     fontSize: 16,
     lineHeight: 19,
+  },
+  aboutText: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   spinningState: {
     alignItems: 'center',
