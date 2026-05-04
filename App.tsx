@@ -22,6 +22,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -316,6 +317,7 @@ function getScaleCategory(scale: ScalePrompt): ScaleCategory {
 }
 
 export default function App() {
+  const { width } = useWindowDimensions();
   const [selectedGrade, setSelectedGrade] = useState(GRADES[0]);
   const [currentScale, setCurrentScale] = useState<PracticePrompt | null>(null);
   const [history, setHistory] = useState<PracticePrompt[]>([]);
@@ -573,6 +575,7 @@ export default function App() {
     inputRange: [0, 1],
     outputRange: ['0deg', '1080deg'],
   });
+  const isWideLayout = width >= 620;
   const visibleListScales =
     listModal === 'review'
       ? reviewScales
@@ -652,7 +655,12 @@ export default function App() {
               {difficultyMode === 'easy' ? 'Easy mode' : 'Hard mode'}
             </Text>
           )}
-          <View style={styles.gradeGrid}>
+          <View
+            style={[
+              styles.gradeGrid,
+              isWideLayout ? styles.gradeGridWide : styles.gradeGridCompact,
+            ]}
+          >
             {GRADES.map((grade) => {
               const isSelected = selectedGrade === grade;
 
@@ -1545,7 +1553,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  gradeGridCompact: {
     maxWidth: 276,
+  },
+  gradeGridWide: {
+    maxWidth: 564,
   },
   themeRow: {
     flexDirection: 'row',
