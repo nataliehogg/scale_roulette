@@ -627,7 +627,10 @@ export default function App() {
             accessibilityLabel="Open settings"
             accessibilityRole="button"
             onPress={() => setIsSettingsOpen(true)}
-            style={styles.settingsButton}
+            style={[
+              styles.settingsButton,
+              !isWideLayout && styles.settingsButtonCompact,
+            ]}
           >
             {[0, 1, 2].map((line) => (
               <View
@@ -1659,14 +1662,18 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     height: 46,
     justifyContent: 'center',
     width: 46,
   },
+  settingsButtonCompact: {
+    alignSelf: 'flex-start',
+    marginTop: 3,
+  },
   settingsButtonLine: {
     borderRadius: 999,
-    height: 2,
+    height: 3,
     width: 24,
   },
   gradeButton: {
