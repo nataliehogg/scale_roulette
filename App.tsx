@@ -20,7 +20,6 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   useWindowDimensions,
   View,
@@ -365,13 +364,13 @@ export default function App() {
     () => SCALE_PROMPTS.filter((scale) => scale.grade === selectedGrade),
     [selectedGrade],
   );
-  const easyScales = useMemo(
-    () => SCALE_PROMPTS.filter((scale) => easyScaleIds.includes(scale.id)),
-    [easyScaleIds],
+  const easyScalesForSelectedGrade = useMemo(
+    () => reviewScales.filter((scale) => easyScaleIds.includes(scale.id)),
+    [easyScaleIds, reviewScales],
   );
-  const hardScales = useMemo(
-    () => SCALE_PROMPTS.filter((scale) => hardScaleIds.includes(scale.id)),
-    [hardScaleIds],
+  const hardScalesForSelectedGrade = useMemo(
+    () => reviewScales.filter((scale) => hardScaleIds.includes(scale.id)),
+    [hardScaleIds, reviewScales],
   );
   const isCurrentScaleEasy = currentScale
     ? easyScaleIds.includes(currentScale.id)
@@ -580,16 +579,24 @@ export default function App() {
     listModal === 'review'
       ? reviewScales
       : listModal === 'easy'
-        ? easyScales
+        ? easyScalesForSelectedGrade
         : listModal === 'hard'
-          ? hardScales
+          ? hardScalesForSelectedGrade
           : [];
   const listTitle =
     listModal === 'review'
       ? `Grade ${selectedGrade} list`
       : listModal === 'easy'
-        ? 'Easy list'
-        : 'Hard list';
+        ? `Grade ${selectedGrade} easy list`
+        : `Grade ${selectedGrade} hard list`;
+  const availablePromptText =
+    gradeScales.length > 0
+      ? `${gradeScales.length} prompts available`
+      : difficultyMode === 'easy'
+        ? `No Grade ${selectedGrade} Easy prompts yet`
+        : difficultyMode === 'hard'
+          ? `No Grade ${selectedGrade} Hard prompts yet`
+          : 'No prompts available';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -604,7 +611,7 @@ export default function App() {
                 themedFont(theme, boldFont, '700'),
               ]}
             >
-              ScaleRoulette
+              Scale Roulette
             </Text>
             <Text
               style={[
@@ -834,7 +841,7 @@ export default function App() {
                   themedFont(theme, bodyFont, '500'),
                 ]}
               >
-                {gradeScales.length} prompts available
+                {availablePromptText}
               </Text>
             </>
           )}
@@ -1095,12 +1102,37 @@ export default function App() {
                     Skip recently spun prompts when possible.
                   </Text>
                 </View>
-                <Switch
-                  onValueChange={setAvoidRecentRepeats}
-                  thumbColor={avoidRecentRepeats ? theme.primary : theme.surface}
-                  trackColor={{ false: theme.border, true: theme.selected }}
-                  value={avoidRecentRepeats}
-                />
+                <Pressable
+                  accessibilityLabel="Toggle avoid recent repeats"
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: avoidRecentRepeats }}
+                  onPress={() =>
+                    setAvoidRecentRepeats((currentValue) => !currentValue)
+                  }
+                  style={[
+                    styles.toggleTrack,
+                    {
+                      backgroundColor: avoidRecentRepeats
+                        ? theme.selected
+                        : theme.surface,
+                      borderColor: avoidRecentRepeats
+                        ? theme.selected
+                        : theme.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      {
+                        alignSelf: avoidRecentRepeats ? 'flex-end' : 'flex-start',
+                        backgroundColor: avoidRecentRepeats
+                          ? theme.selectedText
+                          : theme.mutedText,
+                      },
+                    ]}
+                  />
+                </Pressable>
               </View>
 
               <View style={styles.section}>
@@ -1122,13 +1154,13 @@ export default function App() {
                     },
                     {
                       key: 'easy' as const,
-                      label: 'Easy list',
-                      count: easyScales.length,
+                      label: `Grade ${selectedGrade} Easy list`,
+                      count: easyScalesForSelectedGrade.length,
                     },
                     {
                       key: 'hard' as const,
-                      label: 'Hard list',
-                      count: hardScales.length,
+                      label: `Grade ${selectedGrade} Hard list`,
+                      count: hardScalesForSelectedGrade.length,
                     },
                   ].map((tool) => (
                     <Pressable
@@ -1234,50 +1266,30 @@ export default function App() {
                 )}
               </View>
 
-              <View style={styles.section}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setIsSettingsOpen(false);
+                  setIsAboutOpen(true);
+                }}
+                style={[
+                  styles.toolButton,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
                 <Text
                   style={[
-                    styles.label,
+                    styles.toolButtonText,
                     { color: theme.labelText },
                     themedFont(theme, semiboldFont, '700'),
                   ]}
                 >
                   About
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setIsSettingsOpen(false);
-                    setIsAboutOpen(true);
-                  }}
-                  style={[
-                    styles.toolButton,
-                    {
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.toolButtonText,
-                      { color: theme.labelText },
-                      themedFont(theme, semiboldFont, '700'),
-                    ]}
-                  >
-                    Data source
-                  </Text>
-                  <Text
-                    style={[
-                      styles.toolCount,
-                      { color: theme.mutedText },
-                      themedFont(theme, regularFont, '400'),
-                    ]}
-                  >
-                    2024
-                  </Text>
-                </Pressable>
-              </View>
+              </Pressable>
             </ScrollView>
           </View>
         </View>
@@ -1358,7 +1370,64 @@ export default function App() {
                         {formatMusicText(scale.pattern)}
                       </Text>
                     </View>
-                    {listModal !== 'review' && (
+                    {listModal === 'review' ? (
+                      <View style={styles.listActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => toggleEasyScale(scale.id)}
+                          style={[
+                            styles.listActionButton,
+                            {
+                              backgroundColor: easyScaleIds.includes(scale.id)
+                                ? theme.selected
+                                : theme.surface,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.listActionText,
+                              {
+                                color: easyScaleIds.includes(scale.id)
+                                  ? theme.selectedText
+                                  : theme.labelText,
+                              },
+                              themedFont(theme, semiboldFont, '700'),
+                            ]}
+                          >
+                            Easy
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => toggleHardScale(scale.id)}
+                          style={[
+                            styles.listActionButton,
+                            {
+                              backgroundColor: hardScaleIds.includes(scale.id)
+                                ? theme.selected
+                                : theme.surface,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.listActionText,
+                              {
+                                color: hardScaleIds.includes(scale.id)
+                                  ? theme.selectedText
+                                  : theme.labelText,
+                              },
+                              themedFont(theme, semiboldFont, '700'),
+                            ]}
+                          >
+                            Hard
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : (
                       <Pressable
                         accessibilityRole="button"
                         onPress={() =>
@@ -1420,10 +1489,10 @@ export default function App() {
                   themedFont(theme, boldFont, '700'),
                 ]}
               >
-                Data source
+                About
               </Text>
               <Pressable
-                accessibilityLabel="Close data source"
+                accessibilityLabel="Close about"
                 accessibilityRole="button"
                 onPress={() => setIsAboutOpen(false)}
                 style={[
@@ -1450,7 +1519,7 @@ export default function App() {
                   themedFont(theme, regularFont, '400'),
                 ]}
               >
-                ScaleRoulette contains violin scale and arpeggio prompts extracted
+                Scale Roulette contains violin scale and arpeggio prompts extracted
                 from the ABRSM Bowed Strings Practical Grades syllabus from 2024.
               </Text>
               <Text
@@ -1471,7 +1540,18 @@ export default function App() {
                   themedFont(theme, regularFont, '400'),
                 ]}
               >
-                ScaleRoulette is not affiliated with, endorsed by, or sponsored by
+                Normal mode chooses from all enabled prompts. Easy mode chooses
+                only prompts marked Easy, and Hard mode chooses only prompts
+                marked Hard for the selected grade.
+              </Text>
+              <Text
+                style={[
+                  styles.aboutText,
+                  { color: theme.text },
+                  themedFont(theme, regularFont, '400'),
+                ]}
+              >
+                Scale Roulette is not affiliated with, endorsed by, or sponsored by
                 ABRSM.
               </Text>
               <Text
@@ -1482,6 +1562,8 @@ export default function App() {
                 ]}
               >
                 Settings and easy/hard lists are stored locally on this device.
+                Grade marks stay saved when you switch grades and reappear when
+                you return.
               </Text>
             </ScrollView>
           </View>
@@ -1745,6 +1827,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
   },
+  toggleTrack: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    minHeight: 32,
+    paddingHorizontal: 3,
+    width: 58,
+  },
+  toggleThumb: {
+    borderRadius: 999,
+    height: 24,
+    width: 24,
+  },
   filterList: {
     gap: 10,
   },
@@ -1794,6 +1889,24 @@ const styles = StyleSheet.create({
   },
   listItemText: {
     flex: 1,
+  },
+  listActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  listActionButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 36,
+    minWidth: 58,
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+  },
+  listActionText: {
+    fontSize: 15,
   },
   removeButton: {
     borderRadius: 8,
